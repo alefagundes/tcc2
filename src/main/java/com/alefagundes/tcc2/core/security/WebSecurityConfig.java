@@ -1,26 +1,61 @@
 package com.alefagundes.tcc2.core.security;
 
+import java.security.interfaces.RSAPrivateKey;
+import java.security.interfaces.RSAPublicKey;
+
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.http.HttpMethod;
+import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.jwt.JwtEncoder;
+import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
+import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+
+import com.nimbusds.jose.jwk.JWK;
+import com.nimbusds.jose.jwk.JWKSet;
+import com.nimbusds.jose.jwk.RSAKey;
+import com.nimbusds.jose.jwk.source.ImmutableJWKSet;
+import com.nimbusds.jose.jwk.source.JWKSource;
+import com.nimbusds.jose.proc.SecurityContext;
 
 @Configuration
 @EnableWebSecurity
 public class WebSecurityConfig{
 
+    @Value("${jwt.public.key}")
+    private RSAPublicKey pubKey;
+
+    @Value("${jwt.private.key}")
+    private RSAPrivateKey privKey;
+
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
          return http.csrf(csrf -> csrf.disable())
-               .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                //define para não salvar nenhum dado na sessão do usuário
-               .authorizeHttpRequests((req) -> {
-                req.requestMatchers(HttpMethod.POST, "/users/new").permitAll();
-                req.requestMatchers(HttpMethod.POST, "/users/login").permitAll();
-                req.anyRequest().authenticated();
-               }).build();
+         .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+         //define para não salvar nenhum dado na sessão do usuário
+         .authorizeHttpRequests((auth) -> {
+         auth.requestMatchers("/authenticate").permitAll().anyRequest().authenticated();
+         
+         }).httpBasic(Customizer.withDefaults()) //defino que pelomenos uma vez 
+                .oauth2ResourceServer(conf -> conf.jwt(Customizer.withDefaults()))
+                //definimos que o resource server ira aceitar jwt
+                .build();
+}
+
+    @Bean
+    JwtDecoder jwtDecoder() {
+        return NimbusJwtDecoder.withPublicKey(pubKey).build();
+    }
+
+    @Bean
+    JwtEncoder jwtEncoder() {
+        JWK jwk = new RSAKey.Builder(this.pubKey).privateKey(this.privKey).build();
+        JWKSource<SecurityContext> jwks = new ImmutableJWKSet<>(new JWKSet(jwk));
+        return new NimbusJwtEncoder(jwks);
     }
 }

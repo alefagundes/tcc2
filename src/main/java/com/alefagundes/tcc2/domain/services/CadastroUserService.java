@@ -30,7 +30,7 @@ public class CadastroUserService {
             throw  new UserExistsException(String.format(MSG_USER_EXISTS, user.getEmail()));
         }
         //codificacao da senha do usuario para salvar no banco
-        user.setPassword(passwordEncoder().encode(user.getPassword()));
+        user.setSenha(passwordEncoder().encode(user.getSenha()));
         return userRepository.save(user);
     }
 
@@ -41,7 +41,7 @@ public class CadastroUserService {
 
     public User validateUser(Login userLogin){
         User userSearch = buscarOuFalhar(userLogin.getEmail());
-        if(!passwordEncoder().matches(userLogin.getPassword(), userSearch.getPassword())){
+        if(!passwordEncoder().matches(userLogin.getPassword(), userSearch.getSenha())){
             throw new NegocioException("Usuario ou senha incorretos");
         }
         return userSearch;
